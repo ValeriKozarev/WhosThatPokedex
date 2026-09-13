@@ -8,5 +8,6 @@ public sealed record PokemonResponse(
     [property: JsonPropertyName("height")] int Height,
     [property: JsonPropertyName("weight")] int Weight,
     [property: JsonPropertyName("types")] IReadOnlyList<PokemonType> Types,
-    [property: JsonPropertyName("sprites")] PokemonSprites Sprites
+    [property: JsonPropertyName("sprites")] PokemonSprites Sprites,
+    [property: JsonPropertyName("cries")] PokemonCries Cries
 );

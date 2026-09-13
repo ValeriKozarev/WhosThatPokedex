@@ -1,5 +1,6 @@
 ﻿@page "/"
 @inject PokeApiClient PokeApiClient
+@inject IJSRuntime JS
 
 <PageTitle>WhosThatPokedex</PageTitle>
 
@@ -31,7 +32,9 @@ else
     <img src="@targetPokemon.Sprites.Other.OfficialArtwork.FrontDefault"
         alt="Mystery Pokémon"
         style="width: 300px; @(isRevealed ? "" : "filter: brightness(0);")" />
-
+    <audio @ref="audioElementRef" src="@targetPokemon?.Cries.Latest" style="display:none"></audio>
+    <button @onclick="PlayCry" disabled="@isCryOnCooldown">🔊 Hear its call</button>
+    
     @if (isRevealed)
     {
         <p>@resultMessage</p>
@@ -77,12 +80,49 @@ else
     private bool isRevealed;
     private string resultMessage = "";
 
+    private ElementReference audioElementRef;
+    private IJSObjectReference? audioModule;
+    private bool isCryOnCooldown;
+    private CancellationTokenSource? cryCooldownCts;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            audioModule = await JS.InvokeAsync<IJSObjectReference>("import", "./js/audio.js");
+        }
+    }
+
     private void ToggleGeneration(int id, bool isChecked)
     {
         if (isChecked)
             selectedGenerations.Add(id);
         else
             selectedGenerations.Remove(id);
+    }
+
+    private async Task PlayCry()
+    {
+        if (audioModule is null || targetPokemon?.Cries.Latest is null) return;
+
+        // cancel any still-running cooldown from a previous play so its delayed
+        // completion can't incorrectly clear a newer, still-active cooldown
+        cryCooldownCts?.Cancel();
+        cryCooldownCts = new CancellationTokenSource();
+        var token = cryCooldownCts.Token;
+
+        isCryOnCooldown = true;
+        await audioModule.InvokeVoidAsync("playAudio", audioElementRef);
+
+        try
+        {
+            await Task.Delay(TimeSpan.FromSeconds(5), token);
+            isCryOnCooldown = false;
+        }
+        catch (TaskCanceledException)
+        {
+            // superseded by a newer cooldown — do nothing
+        }
     }
 
     private async Task StartGame()
@@ -94,6 +134,8 @@ else
         resultMessage = "";
         selectedGuess = "";
         attemptsRemaining = 3;
+        cryCooldownCts?.Cancel();
+        isCryOnCooldown = false;
 
         var orderedGenerationIds = selectedGenerations.OrderBy(id => id).ToList();
         var fetchTasks = orderedGenerationIds.Select(id => PokeApiClient.GetPokemonForGenerationAsync(id));

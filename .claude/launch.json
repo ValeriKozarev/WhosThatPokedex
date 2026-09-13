@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "whos-that-pokedex-web",
+      "runtimeExecutable": "dotnet",
+      "runtimeArgs": ["run", "--project", "src/WhosThatPokedex.Web"],
+      "port": 5082
+    }
+  ]
+}
