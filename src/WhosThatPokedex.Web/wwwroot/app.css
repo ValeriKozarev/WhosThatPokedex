@@ -240,6 +240,17 @@ body {
     margin: 0 0 12px;
 }
 
+.pkd-error-box {
+    border: 3px dashed var(--pkd-red);
+    padding: 8px 10px;
+    font-family: 'Silkscreen', monospace;
+    font-weight: 700;
+    font-size: 11px;
+    color: var(--pkd-red);
+    letter-spacing: .03em;
+    margin-bottom: 12px;
+}
+
 /* Loading screen */
 .pkd-loading {
     display: flex;

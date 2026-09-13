@@ -14,6 +14,11 @@
     {
         <div class="pkd-panel pkd-copy">PICK YOUR REGIONS,<br />THEN HIT START! ▶</div>
 
+        @if (loadErrorMessage is not null)
+        {
+            <div class="pkd-error-box">@loadErrorMessage.ToUpperInvariant()</div>
+        }
+
         <div class="pkd-gen-grid">
             @foreach (var gen in AllGenerations)
             {
@@ -145,6 +150,7 @@
     private readonly Dictionary<int, PokemonFetchProgress> progressByGeneration = new();
     private int loadingFetched;
     private int loadingTotal;
+    private string? loadErrorMessage;
     private double LoadingPercent => loadingTotal == 0 ? 0 : (double)loadingFetched / loadingTotal * 100;
 
     private ElementReference audioElementRef;
@@ -222,33 +228,47 @@
         progressByGeneration.Clear();
         loadingFetched = 0;
         loadingTotal = 0;
+        loadErrorMessage = null;
 
-        var orderedGenerationIds = selectedGenerations.OrderBy(id => id).ToList();
-        var fetchTasks = orderedGenerationIds.Select(id =>
+        try
         {
-            var progress = new Progress<PokemonFetchProgress>(p => ReportGenerationProgress(id, p));
-            return PokeApiClient.GetPokemonForGenerationAsync(id, progress);
-        });
-        var results = await Task.WhenAll(fetchTasks);
+            var orderedGenerationIds = selectedGenerations.OrderBy(id => id).ToList();
+            var fetchTasks = orderedGenerationIds.Select(id =>
+            {
+                var progress = new Progress<PokemonFetchProgress>(p => ReportGenerationProgress(id, p));
+                return PokeApiClient.GetPokemonForGenerationAsync(id, progress);
+            });
+            var results = await Task.WhenAll(fetchTasks);
 
-        generationGroups = orderedGenerationIds
-            .Zip(results, (id, result) => (
-                Label: AllGenerations.First(g => g.Id == id).Name,
-                Names: result.Pokemon.Select(p => p.Name).OrderBy(n => n).ToList()
-            ))
-            .ToList();
+            generationGroups = orderedGenerationIds
+                .Zip(results, (id, result) => (
+                    Label: AllGenerations.First(g => g.Id == id).Name,
+                    Names: result.Pokemon.Select(p => p.Name).OrderBy(n => n).ToList()
+                ))
+                .ToList();
 
-        var combinedPokemonWithGeneration = orderedGenerationIds
-            .Zip(results, (id, result) => (Id: id, result.Pokemon))
-            .SelectMany(x => x.Pokemon.Select(p => (
-                Pokemon: p,
-                Generation: AllGenerations.First(g => g.Id == x.Id)
-            )))
-            .ToList();
+            var combinedPokemonWithGeneration = orderedGenerationIds
+                .Zip(results, (id, result) => (Id: id, result.Pokemon))
+                .SelectMany(x => x.Pokemon.Select(p => (
+                    Pokemon: p,
+                    Generation: AllGenerations.First(g => g.Id == x.Id)
+                )))
+                .ToList();
 
-        var targetEntry = combinedPokemonWithGeneration[Random.Shared.Next(combinedPokemonWithGeneration.Count)];
-        targetPokemon = targetEntry.Pokemon;
-        targetGeneration = targetEntry.Generation;
+            var targetEntry = combinedPokemonWithGeneration[Random.Shared.Next(combinedPokemonWithGeneration.Count)];
+            targetPokemon = targetEntry.Pokemon;
+            targetGeneration = targetEntry.Generation;
+        }
+        catch (Exception ex)
+        {
+            // No partial pool is worth showing here — see the WhenAll discussion:
+            // losing a whole selected generation silently would be a correctness bug,
+            // not a graceful degradation. Bail back to the picker with a message
+            // instead of leaving an unhandled exception to kill the whole circuit
+            // (Blazor Server treats most unhandled exceptions as fatal to the session).
+            isGameStarted = false;
+            loadErrorMessage = $"Couldn't load that pool: {ex.Message}";
+        }
     }
 
     private void SubmitGuess()
