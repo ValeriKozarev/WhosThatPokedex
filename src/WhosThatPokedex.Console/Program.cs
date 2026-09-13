@@ -28,11 +28,25 @@ var progress = new Progress<PokemonFetchProgress>(p =>
     Console.WriteLine($"Progress: {p.FetchedPokemon}/{p.TotalPokemon} fetched, {p.FailedPokemon} failed");
 });
 
+// create a cancellation token source that will listen to Ctrl+C and cancel the operation
+using var cts = new CancellationTokenSource();
+
+Console.CancelKeyPress += (sender, e) =>
+{
+    e.Cancel = true; // prevent the process from being killed outright
+    cts.Cancel();     // trigger our own graceful cancellation instead
+    Console.WriteLine("Cancellation requested...");
+};
+
 try
 {
-    var result = await pokeApiClient.GetPokemonForGenerationAsync(1, progress);
+    var result = await pokeApiClient.GetPokemonForGenerationAsync(1, progress, cts.Token);
     Console.WriteLine($"Pokemon species in this generation: {result.Pokemon.Count}");
     Console.WriteLine($"Pokemon species that failed to fetch: {result.Failures.Count}");
+}
+catch (OperationCanceledException)
+{
+    Console.WriteLine("Operation was canceled.");
 }
 catch (Exception ex)
 {
