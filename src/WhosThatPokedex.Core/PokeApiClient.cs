@@ -134,12 +134,10 @@ public sealed class PokeApiClient(HttpClient httpClient)
 
         var pokemon = new List<PokemonResponse>();
         var failures = new List<PokemonFetchOutcome>();
-        var completedCount = 0;
 
         await foreach (var completedTask in Task.WhenEach(outcomeTasks))
         {
             var outcome = await completedTask; // this is already completed, we're just unwrapping
-            completedCount++;
 
             if (outcome.Succeeded)
             {
