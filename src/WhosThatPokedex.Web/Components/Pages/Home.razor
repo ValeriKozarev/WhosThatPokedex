@@ -1,0 +1,25 @@
+﻿@page "/"
+@inject PokeApiClient PokeApiClient
+
+<PageTitle>Home</PageTitle>
+
+<h1>WhosThatPokedex</h1>
+
+@if (speciesCount is null)
+{
+    <p>Loading...</p>
+}
+else
+{
+    <p>Generation 1 has @speciesCount species.</p>
+}
+
+@code {
+    private int? speciesCount;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var result = await PokeApiClient.GetPokemonForGenerationAsync(1);
+        speciesCount = result.Pokemon.Count;
+    }
+}

@@ -2,6 +2,7 @@
   <Folder Name="/src/">
     <Project Path="src/WhosThatPokedex.Console/WhosThatPokedex.Console.csproj" />
     <Project Path="src/WhosThatPokedex.Core/WhosThatPokedex.Core.csproj" />
+    <Project Path="src/WhosThatPokedex.Web/WhosThatPokedex.Web.csproj" />
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/WhosThatPokedex.Core.Tests/WhosThatPokedex.Core.Tests.csproj" />
