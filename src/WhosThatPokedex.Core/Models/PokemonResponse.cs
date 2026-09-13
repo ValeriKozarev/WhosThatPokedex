@@ -9,5 +9,6 @@ public sealed record PokemonResponse(
     [property: JsonPropertyName("weight")] int Weight,
     [property: JsonPropertyName("types")] IReadOnlyList<PokemonType> Types,
     [property: JsonPropertyName("sprites")] PokemonSprites Sprites,
-    [property: JsonPropertyName("cries")] PokemonCries Cries
+    [property: JsonPropertyName("cries")] PokemonCries Cries,
+    [property: JsonPropertyName("species")] NamedApiResource Species
 );

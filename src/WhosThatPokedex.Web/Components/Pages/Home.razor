@@ -42,7 +42,19 @@ else
     }
     else
     {
-        <p>Guesses remaining: @attemptsRemaining</p>
+        <p>Guesses: <TierDots Total="3" Used="@(3 - attemptsRemaining)" Color="#4caf50" /></p>
+
+        <p>
+            Hints: <TierDots Total="3" Used="hintsUsed" />
+            <button @onclick="UseNextHint" disabled="@(hintsUsed >= 3 || isHintLoading)">
+                @(isHintLoading ? "Loading hint..." : "Get Hint")
+            </button>
+        </p>
+
+        @foreach (var hint in revealedHints)
+        {
+            <p>💡 @hint</p>
+        }
 
         <select @bind="selectedGuess">
             <option value="">-- pick a Pokémon --</option>
@@ -75,10 +87,15 @@ else
     private bool isGameStarted;
 
     private PokemonResponse? targetPokemon;
+    private string? targetGenerationLabel;
     private string selectedGuess = "";
     private int attemptsRemaining = 3;
     private bool isRevealed;
     private string resultMessage = "";
+
+    private int hintsUsed;
+    private List<string> revealedHints = new();
+    private bool isHintLoading;
 
     private ElementReference audioElementRef;
     private IJSObjectReference? audioModule;
@@ -129,6 +146,7 @@ else
     {
         isGameStarted = true;
         targetPokemon = null;
+        targetGenerationLabel = null;
         generationGroups = null;
         isRevealed = false;
         resultMessage = "";
@@ -136,6 +154,8 @@ else
         attemptsRemaining = 3;
         cryCooldownCts?.Cancel();
         isCryOnCooldown = false;
+        hintsUsed = 0;
+        revealedHints = new();
 
         var orderedGenerationIds = selectedGenerations.OrderBy(id => id).ToList();
         var fetchTasks = orderedGenerationIds.Select(id => PokeApiClient.GetPokemonForGenerationAsync(id));
@@ -148,8 +168,17 @@ else
             ))
             .ToList();
 
-        var combinedPokemon = results.SelectMany(r => r.Pokemon).ToList();
-        targetPokemon = combinedPokemon[Random.Shared.Next(combinedPokemon.Count)];
+        var combinedPokemonWithGeneration = orderedGenerationIds
+            .Zip(results, (id, result) => (Id: id, result.Pokemon))
+            .SelectMany(x => x.Pokemon.Select(p => (
+                Pokemon: p,
+                GenerationLabel: AllGenerations.First(g => g.Id == x.Id).Name
+            )))
+            .ToList();
+
+        var targetEntry = combinedPokemonWithGeneration[Random.Shared.Next(combinedPokemonWithGeneration.Count)];
+        targetPokemon = targetEntry.Pokemon;
+        targetGenerationLabel = targetEntry.GenerationLabel;
     }
 
     private void SubmitGuess()
@@ -168,5 +197,40 @@ else
             isRevealed = true;
             resultMessage = $"Out of guesses! It was {targetPokemon.Name}.";
         }
+    }
+
+    private async Task UseNextHint()
+    {
+        if (hintsUsed >= 3 || targetPokemon is null || isHintLoading) return;
+
+        isHintLoading = true;
+        var tierBeingRevealed = hintsUsed + 1;
+
+        var hintText = tierBeingRevealed switch
+        {
+            1 => $"Region/Generation: {targetGenerationLabel}",
+            2 => await GetEvolutionHintTextAsync(),
+            3 => $"Type(s): {string.Join(", ", targetPokemon.Types.OrderBy(t => t.Slot).Select(t => t.Type.Name))}",
+            _ => "No more hints."
+        };
+
+        revealedHints.Add(hintText);
+        hintsUsed++;
+        isHintLoading = false;
+    }
+
+    private async Task<string> GetEvolutionHintTextAsync()
+    {
+        var stage = await PokeApiClient.GetEvolutionStageAsync(targetPokemon!);
+
+        return stage switch
+        {
+            EvolutionStage.DoesNotEvolve => "This Pokémon does not evolve.",
+            EvolutionStage.BaseWithMultipleEvolutionsAhead => "This is a base-form Pokémon that evolves multiple times.",
+            EvolutionStage.BaseWithOneEvolutionAhead => "This is a base-form Pokémon that evolves once.",
+            EvolutionStage.MidEvolutionCanEvolveFurther => "This is an evolved form, but it can still evolve further.",
+            EvolutionStage.FullyEvolved => "This is a fully evolved Pokémon.",
+            _ => "Unknown evolution stage.",
+        };
     }
 }

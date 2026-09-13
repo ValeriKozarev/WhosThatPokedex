@@ -66,6 +66,62 @@ public sealed class PokeApiClient(HttpClient httpClient)
     }
 
     // this is the main driver of the app because it fetches all the pokemon for a given generation, and reports progress back to the caller along with being able to handle failures and cancellation
+    // hint helper: fetches a Pokemon's evolution chain and classifies where it sits in it.
+    // Note the species/evolution-chain URLs from the API are already full absolute URLs —
+    // HttpClient ignores BaseAddress when given an absolute URI, so we can pass them straight through.
+    public async Task<EvolutionStage> GetEvolutionStageAsync(PokemonResponse pokemon, CancellationToken cancellationToken = default)
+    {
+        var species = await GetPokemonSpeciesAsync(pokemon.Species.Url, cancellationToken);
+        var evolutionChain = await GetEvolutionChainAsync(species.EvolutionChain.Url, cancellationToken);
+
+        var node = FindNode(evolutionChain.Chain, pokemon.Name)
+            ?? throw new InvalidOperationException($"Could not find `{pokemon.Name}` in its own evolution chain.");
+
+        var isBaseForm = string.Equals(evolutionChain.Chain.Species.Name, pokemon.Name, StringComparison.OrdinalIgnoreCase);
+        var canEvolveFurther = node.EvolvesTo.Count > 0;
+
+        if (isBaseForm)
+        {
+            if (!canEvolveFurther)
+                return EvolutionStage.DoesNotEvolve;
+
+            var evolvesMultipleTimes = node.EvolvesTo.Any(child => child.EvolvesTo.Count > 0);
+            return evolvesMultipleTimes
+                ? EvolutionStage.BaseWithMultipleEvolutionsAhead
+                : EvolutionStage.BaseWithOneEvolutionAhead;
+        }
+
+        return canEvolveFurther ? EvolutionStage.MidEvolutionCanEvolveFurther : EvolutionStage.FullyEvolved;
+    }
+
+    // recursively searches the evolution chain tree for the node matching this species name
+    private static EvolutionChainLink? FindNode(EvolutionChainLink node, string speciesName)
+    {
+        if (string.Equals(node.Species.Name, speciesName, StringComparison.OrdinalIgnoreCase))
+            return node;
+
+        foreach (var child in node.EvolvesTo)
+        {
+            var found = FindNode(child, speciesName);
+            if (found is not null)
+                return found;
+        }
+
+        return null;
+    }
+
+    private async Task<PokemonSpeciesResponse> GetPokemonSpeciesAsync(string speciesUrl, CancellationToken cancellationToken = default)
+    {
+        var species = await httpClient.GetFromJsonAsync<PokemonSpeciesResponse>(speciesUrl, cancellationToken);
+        return species ?? throw new InvalidOperationException($"No species data returned for `{speciesUrl}`");
+    }
+
+    private async Task<EvolutionChainResponse> GetEvolutionChainAsync(string evolutionChainUrl, CancellationToken cancellationToken = default)
+    {
+        var chain = await httpClient.GetFromJsonAsync<EvolutionChainResponse>(evolutionChainUrl, cancellationToken);
+        return chain ?? throw new InvalidOperationException($"No evolution chain data returned for `{evolutionChainUrl}`");
+    }
+
     private async Task<GenerationFetchResult> FetchPokemonForGenerationAsync(
         int generationId, 
         IProgress<PokemonFetchProgress>? progress = null,
