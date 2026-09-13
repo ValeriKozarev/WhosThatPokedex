@@ -1,5 +1,8 @@
 ﻿using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.DependencyInjection;
+
+using System.Diagnostics;
+
 using WhosThatPokedex.Core;
 
 // Creating a Generic Host which is responsible for managing the application lifecycle and dependency injection.
@@ -15,11 +18,12 @@ builder.Services.AddHttpClient<PokeApiClient>(client =>
 using IHost host = builder.Build();
 
 var pokeApiClient = host.Services.GetRequiredService<PokeApiClient>();
-var generation = await pokeApiClient.GetGenerationAsync(1);
 
-Console.WriteLine($"Generation {generation.Id}: {generation.Name}");
-Console.WriteLine($"Pokemon species in this generation: {generation.PokemonSpecies.Count}");
-
-var pokemon = await pokeApiClient.GetPokemonAsync("bulbasaur");
-Console.WriteLine($"Pokemon: {pokemon.Name}");
-Console.WriteLine($"Official artwork: {pokemon.Sprites.Other.OfficialArtwork.FrontDefault}");
+Stopwatch stopwatch3 = Stopwatch.StartNew();
+var pokemonList = await pokeApiClient.GetPokemonForGenerationAsync(1);
+stopwatch3.Stop();
+TimeSpan ts3 = stopwatch3.Elapsed;
+Console.WriteLine($"Pokemon species in this generation: {pokemonList.Count}");
+Console.WriteLine($"Time taken to fetch all pokemon data for generation: {ts3.TotalMilliseconds} ms");
+// NOTE: running this with a WhenAll sent out 151 requests at once, and took 1231.23ms
+// NOTE: running this with a SemaphoreSlim to limit the number of concurrent requests to 10, took 960.76ms (network conditions vary, point is it works)
