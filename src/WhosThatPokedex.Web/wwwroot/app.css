@@ -36,3 +36,511 @@ h1:focus {
 .form-floating > .form-control-plaintext:focus::placeholder, .form-floating > .form-control:focus::placeholder {
     text-align: start;
 }
+
+/* ===========================================================================
+   "Cartridge" theme — GBA-era pixel/bevelled-panel look
+   Palette, fonts, and hard-offset-shadow language pulled from the
+   "1a" design option (Claude Design mockup: "Who's That Pokédex — mobile UI")
+   =========================================================================== */
+
+:root {
+    --pkd-ink: #221c14;
+    --pkd-cream: #f5eeda;
+    --pkd-panel: #fffdf6;
+    --pkd-bg: #e6e0d2;
+    --pkd-red: #c43a24;
+    --pkd-yellow: #ffd94a;
+    --pkd-green: #3f8f5e;
+    --pkd-muted: #6b6152;
+    --pkd-disabled-bg: #d8cfb8;
+    --pkd-disabled-text: #8a8172;
+    --pkd-win-bg: #e8f3e2;
+    --pkd-lose-bg: #f6e4e0;
+    --pkd-dot-off: #e3d9c0;
+    --pkd-hint-bg: #fff6d0;
+}
+
+body {
+    margin: 0;
+    min-height: 100vh;
+    background: var(--pkd-bg);
+    color: var(--pkd-ink);
+    font-family: 'Silkscreen', monospace;
+    display: flex;
+    justify-content: center;
+}
+
+.pkd-app {
+    width: 100%;
+    max-width: 420px;
+    min-height: 100vh;
+    background: var(--pkd-cream);
+    box-sizing: border-box;
+    padding: 16px 16px 32px;
+}
+
+/* On anything wider than a phone, stop pretending to be full-bleed and show
+   it as a centered "cartridge" card instead of stretching edge to edge. */
+@media (min-width: 480px) {
+    body {
+        align-items: flex-start;
+        padding: 32px 16px;
+    }
+
+    .pkd-app {
+        min-height: auto;
+        margin-top: 0;
+        border-radius: 24px;
+        border: 4px solid var(--pkd-ink);
+        box-shadow: 8px 8px 0 var(--pkd-ink);
+    }
+}
+
+.pkd-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 18px;
+}
+
+.pkd-ball {
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    background: var(--pkd-red);
+    border: 3px solid var(--pkd-ink);
+    box-shadow: inset 0 -7px 0 rgba(0, 0, 0, .18);
+    flex-shrink: 0;
+}
+
+.pkd-title {
+    font-family: 'Press Start 2P', monospace;
+    font-size: 11px;
+    line-height: 1.5;
+    margin: 0;
+}
+
+    .pkd-title .accent {
+        color: var(--pkd-red);
+    }
+
+.pkd-panel {
+    border: 3px solid var(--pkd-ink);
+    background: var(--pkd-panel);
+    box-shadow: 4px 4px 0 var(--pkd-ink);
+    padding: 12px 13px;
+    box-sizing: border-box;
+}
+
+.pkd-copy {
+    font-family: 'Press Start 2P', monospace;
+    font-size: 8px;
+    line-height: 1.8;
+    margin: 0 0 12px;
+}
+
+/* Buttons */
+.pkd-btn {
+    font-family: 'Press Start 2P', monospace;
+    font-size: 11px;
+    color: #fff5e6;
+    background: var(--pkd-red);
+    border: 4px solid var(--pkd-ink);
+    box-shadow: 5px 5px 0 var(--pkd-ink);
+    padding: 14px;
+    width: 100%;
+    box-sizing: border-box;
+    cursor: pointer;
+}
+
+    .pkd-btn:disabled {
+        cursor: not-allowed;
+        background: var(--pkd-disabled-bg);
+        color: var(--pkd-disabled-text);
+        box-shadow: none;
+    }
+
+    .pkd-btn.pkd-btn-success {
+        background: var(--pkd-green);
+    }
+
+        .pkd-btn.pkd-btn-success:disabled {
+            background: var(--pkd-disabled-bg);
+            color: var(--pkd-disabled-text);
+        }
+
+.pkd-btn-small {
+    width: auto;
+    font-size: 9px;
+    padding: 6px 8px;
+    border-width: 3px;
+    box-shadow: 3px 3px 0 var(--pkd-ink);
+}
+
+.pkd-btn-yellow {
+    background: var(--pkd-yellow);
+    color: var(--pkd-ink);
+}
+
+    .pkd-btn-yellow:disabled {
+        background: var(--pkd-disabled-bg);
+        color: var(--pkd-disabled-text);
+    }
+
+/* Generation picker */
+.pkd-gen-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 9px;
+    margin: 0 0 16px;
+}
+
+.pkd-gen-card {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 6px;
+    padding: 12px 11px;
+    cursor: pointer;
+    border: 3px solid var(--pkd-ink);
+    background: var(--pkd-panel);
+    color: var(--pkd-ink);
+    box-shadow: 2px 2px 0 rgba(34, 28, 20, .35);
+    transform: translate(2px, 2px);
+    font-family: inherit;
+    text-align: left;
+}
+
+    .pkd-gen-card.active {
+        background: var(--pkd-yellow);
+        box-shadow: 4px 4px 0 var(--pkd-ink);
+        transform: translate(0, 0);
+    }
+
+    .pkd-gen-card .pkd-gen-label {
+        font-family: 'Press Start 2P', monospace;
+        font-size: 9px;
+    }
+
+    .pkd-gen-card .pkd-gen-sub {
+        font-family: 'Silkscreen', monospace;
+        font-weight: 700;
+        font-size: 9px;
+        opacity: .6;
+        letter-spacing: .08em;
+    }
+
+.pkd-pool-note {
+    font-family: 'Silkscreen', monospace;
+    font-weight: 700;
+    font-size: 10px;
+    color: var(--pkd-muted);
+    text-align: center;
+    letter-spacing: .04em;
+    margin: 0 0 12px;
+}
+
+/* Loading screen */
+.pkd-loading {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 22px;
+    padding: 40px 10px;
+}
+
+.pkd-spinner {
+    width: 88px;
+    height: 88px;
+    border-radius: 50%;
+    border: 5px solid var(--pkd-ink);
+    background: var(--pkd-cream);
+    box-shadow: inset 0 -10px 0 rgba(0, 0, 0, .08);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.pkd-spinner-inner {
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    border: 5px solid var(--pkd-ink);
+    border-top-color: var(--pkd-red);
+    animation: pkd-spin .9s linear infinite;
+}
+
+@keyframes pkd-spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+.pkd-loading-label {
+    font-family: 'Press Start 2P', monospace;
+    font-size: 9px;
+    line-height: 1.9;
+    text-align: center;
+}
+
+.pkd-progress-track {
+    width: 100%;
+    height: 20px;
+    border: 3px solid var(--pkd-ink);
+    background: var(--pkd-panel);
+    padding: 2px;
+    box-sizing: border-box;
+}
+
+.pkd-progress-fill {
+    height: 100%;
+    background: repeating-linear-gradient(90deg, var(--pkd-red) 0 6px, #a72f1c 6px 10px);
+    transition: width .15s linear;
+}
+
+.pkd-progress-label {
+    font-family: 'Silkscreen', monospace;
+    font-weight: 700;
+    font-size: 11px;
+    color: var(--pkd-muted);
+    letter-spacing: .05em;
+}
+
+/* Play screen */
+.pkd-silhouette-panel {
+    position: relative;
+    border: 3px solid var(--pkd-ink);
+    background: repeating-linear-gradient(0deg, #e8dfc6 0 6px, #efe7d1 6px 12px);
+    box-shadow: 4px 4px 0 var(--pkd-ink);
+    height: 220px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 11px;
+}
+
+    .pkd-silhouette-panel img {
+        max-height: 85%;
+        max-width: 85%;
+    }
+
+.pkd-cry-btn {
+    position: absolute;
+    top: 7px;
+    right: 7px;
+}
+
+.pkd-stats-row {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 11px;
+}
+
+.pkd-hint-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 6px;
+}
+
+/* PokemonPicker — replaces the native <select> for guessing */
+.pkd-picker {
+    border: 3px solid var(--pkd-ink);
+    background: var(--pkd-panel);
+    box-shadow: 3px 3px 0 var(--pkd-ink);
+}
+
+.pkd-picker-input {
+    width: 100%;
+    box-sizing: border-box;
+    border: none;
+    border-bottom: 3px solid var(--pkd-ink);
+    background: transparent;
+    padding: 11px 10px;
+    font-family: 'Silkscreen', monospace;
+    font-weight: 700;
+    font-size: 14px;
+    color: var(--pkd-ink);
+    letter-spacing: .04em;
+}
+
+    .pkd-picker-input:focus {
+        outline: none;
+        background: var(--pkd-hint-bg);
+    }
+
+.pkd-picker-list {
+    max-height: 180px;
+    overflow-y: auto;
+}
+
+.pkd-picker-group-label {
+    position: sticky;
+    top: 0;
+    background: var(--pkd-cream);
+    font-family: 'Silkscreen', monospace;
+    font-weight: 700;
+    font-size: 9px;
+    color: var(--pkd-muted);
+    letter-spacing: .08em;
+    padding: 6px 10px 2px;
+}
+
+.pkd-picker-row {
+    display: block;
+    width: 100%;
+    box-sizing: border-box;
+    text-align: left;
+    border: none;
+    border-bottom: 1px solid rgba(34, 28, 20, .08);
+    background: transparent;
+    padding: 8px 10px;
+    font-family: 'Silkscreen', monospace;
+    font-weight: 700;
+    font-size: 13px;
+    color: var(--pkd-ink);
+    cursor: pointer;
+}
+
+    .pkd-picker-row:hover,
+    .pkd-picker-row:focus {
+        background: var(--pkd-yellow);
+        outline: none;
+    }
+
+    .pkd-picker-row.selected {
+        background: var(--pkd-red);
+        color: #fff5e6;
+    }
+
+.pkd-picker-empty {
+    padding: 10px;
+    font-family: 'Silkscreen', monospace;
+    font-size: 12px;
+    color: var(--pkd-muted);
+    text-align: center;
+}
+
+.pkd-stat-box {
+    flex: 1;
+}
+
+.pkd-stat-label {
+    font-family: 'Silkscreen', monospace;
+    font-weight: 700;
+    font-size: 9px;
+    color: var(--pkd-muted);
+    letter-spacing: .08em;
+    margin-bottom: 7px;
+}
+
+.pkd-hints-list {
+    margin-bottom: 11px;
+}
+
+.pkd-hint-box {
+    border: 3px solid var(--pkd-ink);
+    background: var(--pkd-hint-bg);
+    padding: 8px 10px;
+    font-family: 'Press Start 2P', monospace;
+    font-size: 7.5px;
+    line-height: 1.9;
+    margin-bottom: 7px;
+}
+
+.pkd-taunt-box {
+    border: 3px dashed #c9c0aa;
+    padding: 8px 10px;
+    font-family: 'Silkscreen', monospace;
+    font-weight: 700;
+    font-size: 11px;
+    color: var(--pkd-muted);
+    letter-spacing: .03em;
+    margin-bottom: 11px;
+}
+
+.pkd-guess-row {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 11px;
+}
+
+.pkd-select {
+    flex: 1;
+    appearance: none;
+    border: 3px solid var(--pkd-ink);
+    background: var(--pkd-panel);
+    box-shadow: 3px 3px 0 var(--pkd-ink);
+    padding: 11px 10px;
+    font-family: 'Silkscreen', monospace;
+    font-weight: 700;
+    font-size: 12px;
+    color: var(--pkd-ink);
+    letter-spacing: .04em;
+}
+
+/* Reveal screen */
+.pkd-reveal-panel {
+    border: 3px solid var(--pkd-ink);
+    box-shadow: 4px 4px 0 var(--pkd-ink);
+    min-height: 200px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 12px;
+}
+
+    .pkd-reveal-panel.win {
+        background: var(--pkd-win-bg);
+    }
+
+    .pkd-reveal-panel.lose {
+        background: var(--pkd-lose-bg);
+    }
+
+    .pkd-reveal-panel img {
+        max-width: 85%;
+        max-height: 85%;
+    }
+
+.pkd-reveal-head {
+    font-family: 'Press Start 2P', monospace;
+    font-size: 8px;
+    line-height: 1.9;
+}
+
+.pkd-reveal-name {
+    font-family: 'Press Start 2P', monospace;
+    font-size: 13px;
+    color: var(--pkd-red);
+    margin-top: 10px;
+    text-transform: uppercase;
+}
+
+.pkd-reveal-meta {
+    font-family: 'Silkscreen', monospace;
+    font-weight: 700;
+    font-size: 11px;
+    color: var(--pkd-muted);
+    margin-top: 8px;
+    letter-spacing: .04em;
+    text-transform: uppercase;
+}
+
+/* Square pixel-style dots (TierDots) */
+.pkd-dot {
+    display: inline-block;
+    width: 15px;
+    height: 15px;
+    border: 3px solid var(--pkd-ink);
+    margin-right: 6px;
+}
+
+    .pkd-dot.on {
+        background: var(--pkd-red);
+    }
+
+    .pkd-dot.off {
+        background: var(--pkd-dot-off);
+    }

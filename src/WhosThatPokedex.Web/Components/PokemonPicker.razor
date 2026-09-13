@@ -1,0 +1,67 @@
+@* A searchable, always-browsable picker: types to filter, but the full grouped
+   list is visible by default so nothing requires knowing exact spelling. *@
+
+<div class="pkd-picker">
+    <input class="pkd-picker-input"
+           placeholder="TYPE OR TAP TO PICK..."
+           value="@searchText"
+           @oninput="OnSearchChanged" />
+
+    <div class="pkd-picker-list">
+        @{ var groups = FilteredGroups().ToList(); }
+        @if (groups.Count == 0)
+        {
+            <div class="pkd-picker-empty">NO MATCHES</div>
+        }
+        else
+        {
+            @foreach (var group in groups)
+            {
+                <div class="pkd-picker-group-label">@group.Label</div>
+                @foreach (var name in group.Names)
+                {
+                    <button type="button"
+                            class="pkd-picker-row @(name == Value ? "selected" : "")"
+                            @onclick="@(() => Select(name))">
+                        @name
+                    </button>
+                }
+            }
+        }
+    </div>
+</div>
+
+@code {
+    [Parameter]
+    public List<(string Label, List<string> Names)> Groups { get; set; } = new();
+
+    [Parameter]
+    public string Value { get; set; } = "";
+
+    [Parameter]
+    public EventCallback<string> ValueChanged { get; set; }
+
+    private string searchText = "";
+
+    private void OnSearchChanged(ChangeEventArgs e)
+    {
+        searchText = e.Value?.ToString() ?? "";
+    }
+
+    private IEnumerable<(string Label, List<string> Names)> FilteredGroups()
+    {
+        if (string.IsNullOrWhiteSpace(searchText))
+            return Groups;
+
+        return Groups
+            .Select(g => (g.Label, Names: g.Names.Where(n => n.Contains(searchText, StringComparison.OrdinalIgnoreCase)).ToList()))
+            .Where(g => g.Names.Count > 0);
+    }
+
+    private async Task Select(string name)
+    {
+        searchText = name;
+        Value = name;
+        await ValueChanged.InvokeAsync(name);
+    }
+}

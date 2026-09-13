@@ -1,84 +1,128 @@
-﻿@page "/"
+@page "/"
 @inject PokeApiClient PokeApiClient
 @inject IJSRuntime JS
 
 <PageTitle>WhosThatPokedex</PageTitle>
 
-<h1>Who's That Pokémon?</h1>
+<div class="pkd-app">
+    <div class="pkd-header">
+        <div class="pkd-ball"></div>
+        <h1 class="pkd-title">WHO'S THAT<br /><span class="accent">POKEDEX</span></h1>
+    </div>
 
-@if (!isGameStarted)
-{
-    <p>Pick one or more generations:</p>
-
-    @foreach (var gen in AllGenerations)
+    @if (!isGameStarted)
     {
-        <label>
-            <input type="checkbox"
-                   checked="@selectedGenerations.Contains(gen.Id)"
-                   @onchange="@(e => ToggleGeneration(gen.Id, (bool)e.Value!))" />
-            @gen.Name
-        </label>
-        <br />
+        <div class="pkd-panel pkd-copy">PICK YOUR REGIONS,<br />THEN HIT START! ▶</div>
+
+        <div class="pkd-gen-grid">
+            @foreach (var gen in AllGenerations)
+            {
+                <button type="button"
+                        class="pkd-gen-card @(selectedGenerations.Contains(gen.Id) ? "active" : "")"
+                        @onclick="@(() => ToggleGeneration(gen.Id))">
+                    <span class="pkd-gen-label">@gen.Region.ToUpperInvariant()</span>
+                    <span class="pkd-gen-sub">@gen.Short · @gen.Count</span>
+                </button>
+            }
+        </div>
+
+        <p class="pkd-pool-note">
+            @(selectedGenerations.Count == 0
+                ? "NOTHING PICKED YET"
+                : $"POOL: {selectedGenerations.Sum(id => AllGenerations.First(g => g.Id == id).Count)} POKÉMON")
+        </p>
+
+        <button class="pkd-btn" @onclick="StartGame" disabled="@(selectedGenerations.Count == 0)">
+            @(selectedGenerations.Count == 0 ? "PICK A REGION" : "START! ▶")
+        </button>
     }
-
-    <button @onclick="StartGame" disabled="@(selectedGenerations.Count == 0)">Start Game</button>
-}
-else if (targetPokemon is null || generationGroups is null)
-{
-    <p>Loading...</p>
-}
-else
-{
-    <img src="@targetPokemon.Sprites.Other.OfficialArtwork.FrontDefault"
-        alt="Mystery Pokémon"
-        style="width: 300px; @(isRevealed ? "" : "filter: brightness(0);")" />
-    <audio @ref="audioElementRef" src="@targetPokemon?.Cries.Latest" style="display:none"></audio>
-    <button @onclick="PlayCry" disabled="@isCryOnCooldown">🔊 Hear its call</button>
-    
-    @if (isRevealed)
+    else if (targetPokemon is null || generationGroups is null)
     {
-        <p>@resultMessage</p>
-        <button @onclick="@(() => isGameStarted = false)">Play Again</button>
+        <div class="pkd-loading">
+            <div class="pkd-spinner"><div class="pkd-spinner-inner"></div></div>
+            <div class="pkd-loading-label">CATCHING DATA...</div>
+            <div class="pkd-progress-track">
+                <div class="pkd-progress-fill" style="width:@(LoadingPercent)%"></div>
+            </div>
+            <div class="pkd-progress-label">@Math.Round(LoadingPercent)% · @loadingFetched / @loadingTotal</div>
+        </div>
+    }
+    else if (isRevealed)
+    {
+        <div class="pkd-reveal-panel @(hasWon ? "win" : "lose")">
+            <img src="@targetPokemon.Sprites.Other.OfficialArtwork.FrontDefault" alt="@targetPokemon.Name" />
+        </div>
+        <div class="pkd-panel">
+            <div class="pkd-reveal-head">@(hasWon ? "IT'S..." : "OUT OF GUESSES! IT WAS...")</div>
+            <div class="pkd-reveal-name">@targetPokemon.Name</div>
+            <div class="pkd-reveal-meta">
+                @targetGeneration?.Short · @string.Join(" / ", targetPokemon.Types.OrderBy(t => t.Slot).Select(t => t.Type.Name))
+            </div>
+        </div>
+        <button class="pkd-btn" style="margin-top:16px" @onclick="@(() => isGameStarted = false)">PLAY AGAIN ▶</button>
     }
     else
     {
-        <p>Guesses: <TierDots Total="3" Used="@(3 - attemptsRemaining)" Color="#4caf50" /></p>
+        <div class="pkd-silhouette-panel">
+            <img src="@targetPokemon.Sprites.Other.OfficialArtwork.FrontDefault" alt="Mystery Pokémon" style="filter: brightness(0);" />
+            <audio @ref="audioElementRef" src="@targetPokemon?.Cries.Latest" style="display:none"></audio>
+            <button class="pkd-btn pkd-btn-small pkd-btn-yellow pkd-cry-btn" @onclick="PlayCry" disabled="@isCryOnCooldown">♪ CRY</button>
+        </div>
 
-        <p>
-            Hints: <TierDots Total="3" Used="hintsUsed" />
-            <button @onclick="UseNextHint" disabled="@(hintsUsed >= 3 || isHintLoading)">
-                @(isHintLoading ? "Loading hint..." : "Get Hint")
-            </button>
-        </p>
+        <div class="pkd-stats-row">
+            <div class="pkd-stat-box pkd-panel">
+                <div class="pkd-stat-label">GUESSES</div>
+                <TierDots Total="3" Used="@(3 - attemptsRemaining)" />
+            </div>
+            <div class="pkd-stat-box pkd-panel">
+                <div class="pkd-stat-label">HINTS</div>
+                <div class="pkd-hint-row">
+                    <TierDots Total="3" Used="hintsUsed" />
+                    <button class="pkd-btn pkd-btn-small pkd-btn-yellow" @onclick="UseNextHint" disabled="@(hintsUsed >= 3 || isHintLoading)">
+                        @(isHintLoading ? "..." : "?")
+                    </button>
+                </div>
+            </div>
+        </div>
 
-        @foreach (var hint in revealedHints)
-        {
-            <p>💡 @hint</p>
-        }
-
-        <select @bind="selectedGuess">
-            <option value="">-- pick a Pokémon --</option>
-            @foreach (var group in generationGroups!)
+        <div class="pkd-hints-list">
+            @foreach (var hint in revealedHints)
             {
-                <optgroup label="@group.Label">
-                    @foreach (var name in group.Names)
-                    {
-                        <option value="@name">@name</option>
-                    }
-                </optgroup>
+                <div class="pkd-hint-box">@hint.ToUpperInvariant()</div>
             }
-        </select>
+            @if (tauntMessage is not null)
+            {
+                <div class="pkd-taunt-box">@tauntMessage</div>
+            }
+        </div>
 
-        <button @onclick="SubmitGuess" disabled="@string.IsNullOrEmpty(selectedGuess)">Guess</button>
+        <div class="pkd-guess-row">
+            <PokemonPicker Groups="generationGroups!" @bind-Value="selectedGuess" />
+        </div>
+
+        <button class="pkd-btn pkd-btn-success" @onclick="SubmitGuess" disabled="@string.IsNullOrEmpty(selectedGuess)">GUESS!</button>
     }
-}
+</div>
 
 @code {
-    private static readonly (int Id, string Name)[] AllGenerations =
+    private static readonly (int Id, string Name, string Short, string Region, int Count)[] AllGenerations =
     [
-        (1, "Generation I"), (2, "Generation II"), (3, "Generation III"),
-        (4, "Generation IV"), (5, "Generation V"), (6, "Generation VI"),
-        (7, "Generation VII"), (8, "Generation VIII"), (9, "Generation IX"),
+        (1, "Generation I", "GEN I", "Kanto", 151),
+        (2, "Generation II", "GEN II", "Johto", 100),
+        (3, "Generation III", "GEN III", "Hoenn", 135),
+        (4, "Generation IV", "GEN IV", "Sinnoh", 107),
+        (5, "Generation V", "GEN V", "Unova", 156),
+        (6, "Generation VI", "GEN VI", "Kalos", 72),
+        (7, "Generation VII", "GEN VII", "Alola", 88),
+        (8, "Generation VIII", "GEN VIII", "Galar", 96),
+        (9, "Generation IX", "GEN IX", "Paldea", 120),
+    ];
+
+    private static readonly string[] Taunts =
+    [
+        "Not even close, trainer.",
+        "Hmm. Try again.",
+        "So close! One left...",
     ];
 
     private List<(string Label, List<string> Names)>? generationGroups;
@@ -87,15 +131,21 @@ else
     private bool isGameStarted;
 
     private PokemonResponse? targetPokemon;
-    private string? targetGenerationLabel;
+    private (int Id, string Name, string Short, string Region, int Count)? targetGeneration;
     private string selectedGuess = "";
     private int attemptsRemaining = 3;
     private bool isRevealed;
-    private string resultMessage = "";
+    private bool hasWon;
+    private string? tauntMessage;
 
     private int hintsUsed;
     private List<string> revealedHints = new();
     private bool isHintLoading;
+
+    private readonly Dictionary<int, PokemonFetchProgress> progressByGeneration = new();
+    private int loadingFetched;
+    private int loadingTotal;
+    private double LoadingPercent => loadingTotal == 0 ? 0 : (double)loadingFetched / loadingTotal * 100;
 
     private ElementReference audioElementRef;
     private IJSObjectReference? audioModule;
@@ -110,11 +160,9 @@ else
         }
     }
 
-    private void ToggleGeneration(int id, bool isChecked)
+    private void ToggleGeneration(int id)
     {
-        if (isChecked)
-            selectedGenerations.Add(id);
-        else
+        if (!selectedGenerations.Add(id))
             selectedGenerations.Remove(id);
     }
 
@@ -142,23 +190,45 @@ else
         }
     }
 
+    // Reports one generation's progress into the shared totals. Multiple of these
+    // can be in flight concurrently (one per selected generation), but Progress<T>
+    // captures Blazor Server's own SynchronizationContext when constructed in
+    // StartGame, so every callback — no matter which generation's fetch raised it —
+    // gets marshaled back onto the same circuit and runs one at a time. That's what
+    // makes it safe to mutate a plain Dictionary here instead of a ConcurrentDictionary.
+    private void ReportGenerationProgress(int generationId, PokemonFetchProgress progress)
+    {
+        progressByGeneration[generationId] = progress;
+        loadingTotal = progressByGeneration.Values.Sum(p => p.TotalPokemon);
+        loadingFetched = progressByGeneration.Values.Sum(p => p.FetchedPokemon + p.FailedPokemon);
+        StateHasChanged();
+    }
+
     private async Task StartGame()
     {
         isGameStarted = true;
         targetPokemon = null;
-        targetGenerationLabel = null;
+        targetGeneration = null;
         generationGroups = null;
         isRevealed = false;
-        resultMessage = "";
+        hasWon = false;
+        tauntMessage = null;
         selectedGuess = "";
         attemptsRemaining = 3;
         cryCooldownCts?.Cancel();
         isCryOnCooldown = false;
         hintsUsed = 0;
         revealedHints = new();
+        progressByGeneration.Clear();
+        loadingFetched = 0;
+        loadingTotal = 0;
 
         var orderedGenerationIds = selectedGenerations.OrderBy(id => id).ToList();
-        var fetchTasks = orderedGenerationIds.Select(id => PokeApiClient.GetPokemonForGenerationAsync(id));
+        var fetchTasks = orderedGenerationIds.Select(id =>
+        {
+            var progress = new Progress<PokemonFetchProgress>(p => ReportGenerationProgress(id, p));
+            return PokeApiClient.GetPokemonForGenerationAsync(id, progress);
+        });
         var results = await Task.WhenAll(fetchTasks);
 
         generationGroups = orderedGenerationIds
@@ -172,13 +242,13 @@ else
             .Zip(results, (id, result) => (Id: id, result.Pokemon))
             .SelectMany(x => x.Pokemon.Select(p => (
                 Pokemon: p,
-                GenerationLabel: AllGenerations.First(g => g.Id == x.Id).Name
+                Generation: AllGenerations.First(g => g.Id == x.Id)
             )))
             .ToList();
 
         var targetEntry = combinedPokemonWithGeneration[Random.Shared.Next(combinedPokemonWithGeneration.Count)];
         targetPokemon = targetEntry.Pokemon;
-        targetGenerationLabel = targetEntry.GenerationLabel;
+        targetGeneration = targetEntry.Generation;
     }
 
     private void SubmitGuess()
@@ -186,7 +256,7 @@ else
         if (string.Equals(selectedGuess, targetPokemon!.Name, StringComparison.OrdinalIgnoreCase))
         {
             isRevealed = true;
-            resultMessage = $"Correct! It's {targetPokemon.Name}!";
+            hasWon = true;
             return;
         }
 
@@ -195,7 +265,12 @@ else
         if (attemptsRemaining <= 0)
         {
             isRevealed = true;
-            resultMessage = $"Out of guesses! It was {targetPokemon.Name}.";
+            hasWon = false;
+        }
+        else
+        {
+            var tauntIndex = Math.Clamp(2 - attemptsRemaining, 0, Taunts.Length - 1);
+            tauntMessage = Taunts[tauntIndex];
         }
     }
 
@@ -208,9 +283,9 @@ else
 
         var hintText = tierBeingRevealed switch
         {
-            1 => $"Region/Generation: {targetGenerationLabel}",
+            1 => $"Region: {targetGeneration?.Region} ({targetGeneration?.Short})",
             2 => await GetEvolutionHintTextAsync(),
-            3 => $"Type(s): {string.Join(", ", targetPokemon.Types.OrderBy(t => t.Slot).Select(t => t.Type.Name))}",
+            3 => $"Type: {string.Join(" / ", targetPokemon.Types.OrderBy(t => t.Slot).Select(t => t.Type.Name))}",
             _ => "No more hints."
         };
 
@@ -226,9 +301,9 @@ else
         return stage switch
         {
             EvolutionStage.DoesNotEvolve => "This Pokémon does not evolve.",
-            EvolutionStage.BaseWithMultipleEvolutionsAhead => "This is a base-form Pokémon that evolves multiple times.",
-            EvolutionStage.BaseWithOneEvolutionAhead => "This is a base-form Pokémon that evolves once.",
-            EvolutionStage.MidEvolutionCanEvolveFurther => "This is an evolved form, but it can still evolve further.",
+            EvolutionStage.BaseWithMultipleEvolutionsAhead => "Base form. It evolves multiple times.",
+            EvolutionStage.BaseWithOneEvolutionAhead => "Base form. It evolves once.",
+            EvolutionStage.MidEvolutionCanEvolveFurther => "Evolved form, but can still evolve further.",
             EvolutionStage.FullyEvolved => "This is a fully evolved Pokémon.",
             _ => "Unknown evolution stage.",
         };

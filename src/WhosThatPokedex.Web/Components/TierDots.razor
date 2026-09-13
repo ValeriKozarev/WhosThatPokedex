@@ -1,13 +1,13 @@
-@* A row of colored/greyed dots showing how many of a limited resource (hints, guesses)
-   have been used out of a total. Used ones (leftmost) are grey; remaining ones stay colored. *@
+@* A row of square pixel-style dots showing how many of a limited resource
+   (hints, guesses) have been used out of a total. Available ones are red,
+   used ones fade to tan — matches the "cartridge" theme's dot language. *@
 
 <span>
     @for (var i = 0; i < Total; i++)
     {
         // not capturing 'i' in a delegate here — used inline per render, so the
         // closure-capture concern that matters for delegates doesn't apply
-        <span style="display:inline-block; width:14px; height:14px; border-radius:50%;
-                     margin-left:4px; background-color:@(i < Used ? "#ccc" : Color);"></span>
+        <span class="pkd-dot @(i < Used ? "off" : "on")"></span>
     }
 </span>
 
@@ -17,7 +17,4 @@
 
     [Parameter]
     public int Used { get; set; }
-
-    [Parameter]
-    public string Color { get; set; } = "gold";
 }
