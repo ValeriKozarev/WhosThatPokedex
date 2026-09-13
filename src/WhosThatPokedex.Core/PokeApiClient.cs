@@ -13,4 +13,12 @@ public sealed class PokeApiClient(HttpClient httpClient)
         // the above returns Task<T?>, so we need to check if the result is null and throw an exception if it is
         return generation ?? throw new InvalidOperationException($"No generation data returned for generation with ID `{generationId}`");
     }
+
+    public async Task<PokemonResponse> GetPokemonAsync(string pokemonName)
+    {
+        var pokemon = await httpClient.GetFromJsonAsync<PokemonResponse>($"pokemon/{pokemonName}");
+        
+        // the above returns Task<T?>, so we need to check if the result is null and throw an exception if it is
+        return pokemon ?? throw new InvalidOperationException($"No pokemon data returned for pokemon with name `{pokemonName}`");
+    }
 }

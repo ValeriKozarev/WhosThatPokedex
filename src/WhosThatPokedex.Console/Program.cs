@@ -19,3 +19,7 @@ var generation = await pokeApiClient.GetGenerationAsync(1);
 
 Console.WriteLine($"Generation {generation.Id}: {generation.Name}");
 Console.WriteLine($"Pokemon species in this generation: {generation.PokemonSpecies.Count}");
+
+var pokemon = await pokeApiClient.GetPokemonAsync("bulbasaur");
+Console.WriteLine($"Pokemon: {pokemon.Name}");
+Console.WriteLine($"Official artwork: {pokemon.Sprites.Other.OfficialArtwork.FrontDefault}");
