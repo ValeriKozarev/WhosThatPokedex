@@ -1,25 +1,130 @@
 ﻿@page "/"
 @inject PokeApiClient PokeApiClient
 
-<PageTitle>Home</PageTitle>
+<PageTitle>WhosThatPokedex</PageTitle>
 
-<h1>WhosThatPokedex</h1>
+<h1>Who's That Pokémon?</h1>
 
-@if (speciesCount is null)
+@if (!isGameStarted)
+{
+    <p>Pick one or more generations:</p>
+
+    @foreach (var gen in AllGenerations)
+    {
+        <label>
+            <input type="checkbox"
+                   checked="@selectedGenerations.Contains(gen.Id)"
+                   @onchange="@(e => ToggleGeneration(gen.Id, (bool)e.Value!))" />
+            @gen.Name
+        </label>
+        <br />
+    }
+
+    <button @onclick="StartGame" disabled="@(selectedGenerations.Count == 0)">Start Game</button>
+}
+else if (targetPokemon is null || generationGroups is null)
 {
     <p>Loading...</p>
 }
 else
 {
-    <p>Generation 1 has @speciesCount species.</p>
+    <img src="@targetPokemon.Sprites.Other.OfficialArtwork.FrontDefault"
+        alt="Mystery Pokémon"
+        style="width: 300px; @(isRevealed ? "" : "filter: brightness(0);")" />
+
+    @if (isRevealed)
+    {
+        <p>@resultMessage</p>
+        <button @onclick="@(() => isGameStarted = false)">Play Again</button>
+    }
+    else
+    {
+        <p>Guesses remaining: @attemptsRemaining</p>
+
+        <select @bind="selectedGuess">
+            <option value="">-- pick a Pokémon --</option>
+            @foreach (var group in generationGroups!)
+            {
+                <optgroup label="@group.Label">
+                    @foreach (var name in group.Names)
+                    {
+                        <option value="@name">@name</option>
+                    }
+                </optgroup>
+            }
+        </select>
+
+        <button @onclick="SubmitGuess" disabled="@string.IsNullOrEmpty(selectedGuess)">Guess</button>
+    }
 }
 
 @code {
-    private int? speciesCount;
+    private static readonly (int Id, string Name)[] AllGenerations =
+    [
+        (1, "Generation I"), (2, "Generation II"), (3, "Generation III"),
+        (4, "Generation IV"), (5, "Generation V"), (6, "Generation VI"),
+        (7, "Generation VII"), (8, "Generation VIII"), (9, "Generation IX"),
+    ];
 
-    protected override async Task OnInitializedAsync()
+    private List<(string Label, List<string> Names)>? generationGroups;
+
+    private HashSet<int> selectedGenerations = new();
+    private bool isGameStarted;
+
+    private PokemonResponse? targetPokemon;
+    private string selectedGuess = "";
+    private int attemptsRemaining = 3;
+    private bool isRevealed;
+    private string resultMessage = "";
+
+    private void ToggleGeneration(int id, bool isChecked)
     {
-        var result = await PokeApiClient.GetPokemonForGenerationAsync(1);
-        speciesCount = result.Pokemon.Count;
+        if (isChecked)
+            selectedGenerations.Add(id);
+        else
+            selectedGenerations.Remove(id);
+    }
+
+    private async Task StartGame()
+    {
+        isGameStarted = true;
+        targetPokemon = null;
+        generationGroups = null;
+        isRevealed = false;
+        resultMessage = "";
+        selectedGuess = "";
+        attemptsRemaining = 3;
+
+        var orderedGenerationIds = selectedGenerations.OrderBy(id => id).ToList();
+        var fetchTasks = orderedGenerationIds.Select(id => PokeApiClient.GetPokemonForGenerationAsync(id));
+        var results = await Task.WhenAll(fetchTasks);
+
+        generationGroups = orderedGenerationIds
+            .Zip(results, (id, result) => (
+                Label: AllGenerations.First(g => g.Id == id).Name,
+                Names: result.Pokemon.Select(p => p.Name).OrderBy(n => n).ToList()
+            ))
+            .ToList();
+
+        var combinedPokemon = results.SelectMany(r => r.Pokemon).ToList();
+        targetPokemon = combinedPokemon[Random.Shared.Next(combinedPokemon.Count)];
+    }
+
+    private void SubmitGuess()
+    {
+        if (string.Equals(selectedGuess, targetPokemon!.Name, StringComparison.OrdinalIgnoreCase))
+        {
+            isRevealed = true;
+            resultMessage = $"Correct! It's {targetPokemon.Name}!";
+            return;
+        }
+
+        attemptsRemaining--;
+
+        if (attemptsRemaining <= 0)
+        {
+            isRevealed = true;
+            resultMessage = $"Out of guesses! It was {targetPokemon.Name}.";
+        }
     }
 }
