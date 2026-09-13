@@ -38,6 +38,11 @@ Console.CancelKeyPress += (sender, e) =>
     Console.WriteLine("Cancellation requested...");
 };
 
+// testing to see if we handled cache stampede -- this outputs progress only once, the two batches are not interleaved because one is reading from the cache
+// var stampedeTask1 = pokeApiClient.GetPokemonForGenerationAsync(2, progress, cts.Token);
+// var stampedeTask2 = pokeApiClient.GetPokemonForGenerationAsync(2, progress, cts.Token);
+// await Task.WhenAll(stampedeTask1, stampedeTask2);
+
 try
 {
     var result = await pokeApiClient.GetPokemonForGenerationAsync(1, progress, cts.Token);

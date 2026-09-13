@@ -1,4 +1,5 @@
 using System.Net.Http.Json;
+using System.Collections.Concurrent;
 using WhosThatPokedex.Core.Models;
 
 namespace WhosThatPokedex.Core;
@@ -7,7 +8,9 @@ namespace WhosThatPokedex.Core;
 public sealed class PokeApiClient(HttpClient httpClient)
 {
     private readonly SemaphoreSlim _semaphore = new(10); // limit to 10 concurrent requests
+    private readonly ConcurrentDictionary<int, Lazy<Task<GenerationFetchResult>>> _generationCache = new();
 
+    #region private API helpers
     private async Task<GenerationResponse> GetGenerationAsync(int generationId, CancellationToken cancellationToken = default)
     {
         var generation = await httpClient.GetFromJsonAsync<GenerationResponse>($"generation/{generationId}", cancellationToken);
@@ -48,8 +51,22 @@ public sealed class PokeApiClient(HttpClient httpClient)
         }
     }
 
-    // the main entry point (for now) which will be called from the console app, to get all the pokemon for a given generation
-    public async Task<GenerationFetchResult> GetPokemonForGenerationAsync(
+    private async Task<GenerationFetchResult> AwaitAndEvictOnFailureAsync(int generationId, Lazy<Task<GenerationFetchResult>> lazyResult)
+    {
+        try
+        {
+            return await lazyResult.Value;
+        }
+        catch
+        {
+            // if the task failed, we want to evict it from the cache so that we can try again next time
+            _generationCache.TryRemove(generationId, out _);
+            throw;
+        }
+    }
+
+    // this is the main driver of the app because it fetches all the pokemon for a given generation, and reports progress back to the caller along with being able to handle failures and cancellation
+    private async Task<GenerationFetchResult> FetchPokemonForGenerationAsync(
         int generationId, 
         IProgress<PokemonFetchProgress>? progress = null,
         CancellationToken cancellationToken = default)
@@ -81,5 +98,19 @@ public sealed class PokeApiClient(HttpClient httpClient)
         }
 
         return new GenerationFetchResult(pokemon, failures);
+    }
+    #endregion
+
+
+    // the main entry point (for now) which will be called from the console app, to get all the pokemon for a given generation
+    public Task<GenerationFetchResult> GetPokemonForGenerationAsync(
+        int generationId, 
+        IProgress<PokemonFetchProgress>? progress = null,
+        CancellationToken cancellationToken = default)
+    {
+        // this line looks crazy, but it's pretty cool. We are storing an unstarted promise in a Lazy<Task<T>> so that we can avoid starting the fetch until we actually need it, and we are using a ConcurrentDictionary to cache the result so that if multiple calls come in for the same generation, we only fetch it once. If the fetch fails, we evict it from the cache so that we can try again next time.
+        var lazyResult = _generationCache.GetOrAdd(generationId, id => new Lazy<Task<GenerationFetchResult>>(() => FetchPokemonForGenerationAsync(id, progress, cancellationToken)));
+
+        return AwaitAndEvictOnFailureAsync(generationId, lazyResult);
     }
 }
