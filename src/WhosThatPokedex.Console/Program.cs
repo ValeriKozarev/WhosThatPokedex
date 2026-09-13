@@ -14,7 +14,7 @@ builder.Logging.AddFilter("System.Net.Http.HttpClient", LogLevel.Warning);
 // Register our client for hitting the PokeAPI so we can use it later
 builder.Services.AddHttpClient<PokeApiClient>(client =>
 {
-   client.BaseAddress = new Uri("https://pokeapi.co/api/v2/"); 
+    client.BaseAddress = new Uri("https://pokeapi.co/api/v2/"); 
 });
 
 // end of registration phase
@@ -28,7 +28,13 @@ var progress = new Progress<PokemonFetchProgress>(p =>
     Console.WriteLine($"Progress: {p.FetchedPokemon}/{p.TotalPokemon} fetched, {p.FailedPokemon} failed");
 });
 
-var genFetchResult = await pokeApiClient.GetPokemonForGenerationAsync(1, progress);
-
-Console.WriteLine($"Pokemon species in this generation: {genFetchResult.Pokemon.Count}");
-Console.WriteLine($"Pokemon species that failed to fetch: {genFetchResult.Failures.Count}");
+try
+{
+    var result = await pokeApiClient.GetPokemonForGenerationAsync(1, progress);
+    Console.WriteLine($"Pokemon species in this generation: {result.Pokemon.Count}");
+    Console.WriteLine($"Pokemon species that failed to fetch: {result.Failures.Count}");
+}
+catch (Exception ex)
+{
+    Console.WriteLine($"Couldn't fetch generation data: {ex.Message}");
+}

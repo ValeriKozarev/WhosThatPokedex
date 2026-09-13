@@ -6,12 +6,12 @@ namespace WhosThatPokedex.Core;
 // our client for hitting the PokeAPI so we can use it later with primary constructor syntax
 public sealed class PokeApiClient(HttpClient httpClient)
 {
-    private readonly SemaphoreSlim semaphore = new(10); // limit to 10 concurrent requests
+    private readonly SemaphoreSlim _semaphore = new(10); // limit to 10 concurrent requests
 
     private async Task<GenerationResponse> GetGenerationAsync(int generationId)
     {
         var generation = await httpClient.GetFromJsonAsync<GenerationResponse>($"generation/{generationId}");
-        
+
         // the above returns Task<T?>, so we need to check if the result is null and throw an exception if it is
         return generation ?? throw new InvalidOperationException($"No generation data returned for generation with ID `{generationId}`");
     }
@@ -27,7 +27,7 @@ public sealed class PokeApiClient(HttpClient httpClient)
     // Our primary helper here is using SemaphoreSlim and try/catch/finally for the sempahore as well as error handling. We want to limit number of active requests and be resilient to errors, so we return a PokemonFetchOutcome which contains the result or the error message
     private async Task<PokemonFetchOutcome> GetPokemonFetchOutcomeAsync(string pokemonName)
     {
-        await semaphore.WaitAsync();
+        await _semaphore.WaitAsync();
         try
         {
             var pokemon = await GetPokemonAsync(pokemonName);
@@ -39,7 +39,7 @@ public sealed class PokeApiClient(HttpClient httpClient)
         }
         finally
         {
-            semaphore.Release();
+            _semaphore.Release();
         }
     }
 
@@ -62,7 +62,7 @@ public sealed class PokeApiClient(HttpClient httpClient)
 
             if (outcome.Succeeded)
             {
-                pokemon.Add(outcome.Pokemon!);
+                pokemon.Add(outcome.Pokemon!); // TODO: maybe I'll split this into two types so we don't need the bang operator here, but for now we know that if Succeeded is true, Pokemon is not null
             }
             else
             {
